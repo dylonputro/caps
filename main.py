@@ -285,42 +285,20 @@ def predict_revenue_nbeats(df, prediction_days=30):
 # Streamlit Layout
 # Fungsi untuk memprediksi dengan N-BEATS
 def predict_revenue_nbeats(df, prediction_days=30):
-    # Persiapkan data sesuai format yang dibutuhkan oleh NeuralForecast
+    # Persiapkan data untuk N-BEATS
     df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
     df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
     
-    # Tentukan model N-BEATS
-    model = NBEATS(lags=12, input_size=10, n_epochs=100)
-    
-    # Persiapkan data untuk prediksi
+    # Normalisasi data
+    scaler = StandardScaler()
+    df_nbeats['y'] = scaler.fit_transform(df_nbeats[['y']])
+
+    # Inisialisasi dan latih model N-BEATS
+    model = NBEATS(h=prediction_days)
     nf = NeuralForecast(models=[model], freq='D')
     nf.fit(df_nbeats)
-    
-    # Melakukan prediksi
-    forecast = nf.predict(steps=prediction_days)
-    
-    # Mengembalikan prediksi dengan tanggal
-    predicted_df = pd.DataFrame({
-        'Tanggal & Waktu': forecast.index,
-        'nominal_transaksi': forecast['NBEATS']
-    })
-    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-    return predicted_df
 
-# Dalam bagian dashboard, kita tambahkan tombol untuk memicu prediksi dengan N-BEATS
-if st.button('Make Prediction with N-BEATS'):
-    predicted_values = predict_revenue_nbeats(datasales)
-    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
-    
-    # Update chart with prediction
-    fig.add_traces(
-        go.Scatter(
-            x=predicted_values.index, 
-            y=predicted_values['nominal_transaksi'], 
-            mode='lines', 
-            name='Predictions',
-            line=dict(color='red', dash='dash')
-        )
-    )
-    fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction using N-BEATS)")
-    st.plotly_chart(fig, use_container_width=True)
+    # Prediksi
+    forecast = nf.predict()
+    forecast['y'] = scaler.inverse_transform(forecast[['y']])
+    return forecast[['ds', 'y']]
