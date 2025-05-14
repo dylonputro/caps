@@ -283,28 +283,44 @@ def predict_revenue_nbeats(df, prediction_days=30):
     return forecast
 
 # Streamlit Layout
-st.title("📊 Prediksi Omset Menggunakan Prophet & N-BEATS")
-st.write("Aplikasi ini digunakan untuk memprediksi omset berdasarkan data historis.")
-
+# Fungsi untuk memprediksi dengan N-BEATS
 def predict_revenue_nbeats(df, prediction_days=30):
-    # Prepare data for N-BEATS model
+    # Persiapkan data sesuai format yang dibutuhkan oleh NeuralForecast
     df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
-    df_nbeats['Tanggal & Waktu'] = pd.to_datetime(df_nbeats['Tanggal & Waktu'])
-    df_nbeats.set_index('Tanggal & Waktu', inplace=True)
+    df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
+    
+    # Tentukan model N-BEATS
+    model = NBEATS(lags=12, input_size=10, n_epochs=100)
+    
+    # Persiapkan data untuk prediksi
+    nf = NeuralForecast(models=[model], freq='D')
+    nf.fit(df_nbeats)
+    
+    # Melakukan prediksi
+    forecast = nf.predict(steps=prediction_days)
+    
+    # Mengembalikan prediksi dengan tanggal
+    predicted_df = pd.DataFrame({
+        'Tanggal & Waktu': forecast.index,
+        'nominal_transaksi': forecast['NBEATS']
+    })
+    predicted_df.set_index('Tanggal & Waktu', inplace=True)
+    return predicted_df
 
-    # NeuralForecast requires a specific format, make sure it's prepared for the model
-    df_nbeats = df_nbeats.rename(columns={'nominal_transaksi': 'y'})
-
-    # Create the model instance and forecast
-    model = NBEATS()
-    forecast_model = NeuralForecast(models=[model], freq='D')
-    forecast_model.fit(df_nbeats)
+# Dalam bagian dashboard, kita tambahkan tombol untuk memicu prediksi dengan N-BEATS
+if st.button('Make Prediction with N-BEATS'):
+    predicted_values = predict_revenue_nbeats(datasales)
+    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
     
-    # Predict for the next 'prediction_days'
-    forecast = forecast_model.predict(fh=prediction_days)
-    
-    # Convert forecast to a DataFrame for easy manipulation
-    forecast_df = forecast[model.name].reset_index()
-    forecast_df.rename(columns={'ds': 'Tanggal & Waktu', 'yhat': 'nominal_transaksi'}, inplace=True)
-    
-    return forecast_df
+    # Update chart with prediction
+    fig.add_traces(
+        go.Scatter(
+            x=predicted_values.index, 
+            y=predicted_values['nominal_transaksi'], 
+            mode='lines', 
+            name='Predictions',
+            line=dict(color='red', dash='dash')
+        )
+    )
+    fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction using N-BEATS)")
+    st.plotly_chart(fig, use_container_width=True)
