@@ -9,3 +9,4 @@ torch
 pytorch-lightning
 pytorch-forecasting
 neuralforecast
+prophet
