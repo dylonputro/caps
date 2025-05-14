@@ -5,11 +5,9 @@ import plotly.graph_objects as go
 import prepro
 import ollama
 import plotly.graph_objects as go
-from fbprophet import Prophet
-from sklearn.metrics import mean_absolute_error
 from neuralforecast.models import NBEATS
 from neuralforecast import NeuralForecast
-import plotly.express as px
+
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
 
@@ -288,53 +286,25 @@ def predict_revenue_nbeats(df, prediction_days=30):
 st.title("📊 Prediksi Omset Menggunakan Prophet & N-BEATS")
 st.write("Aplikasi ini digunakan untuk memprediksi omset berdasarkan data historis.")
 
-# Upload Data
-uploaded_file = st.file_uploader("Pilih file CSV", type=["csv"])
-if uploaded_file:
-    # Membaca data
-    df = pd.read_csv(uploaded_file)
-    df['Tanggal & Waktu'] = pd.to_datetime(df['Tanggal & Waktu'])
-    salesVsTime = df.groupby('Tanggal & Waktu').agg({'nominal_transaksi': 'sum'}).reset_index()
+def predict_revenue_nbeats(df, prediction_days=30):
+    # Prepare data for N-BEATS model
+    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
+    df_nbeats['Tanggal & Waktu'] = pd.to_datetime(df_nbeats['Tanggal & Waktu'])
+    df_nbeats.set_index('Tanggal & Waktu', inplace=True)
 
-    # Menampilkan data
-    st.subheader("Data Historis Omset")
-    st.write(salesVsTime)
+    # NeuralForecast requires a specific format, make sure it's prepared for the model
+    df_nbeats = df_nbeats.rename(columns={'nominal_transaksi': 'y'})
 
-    # Pilih model untuk prediksi
-    st.subheader("🔮 Revenue Prediction")
-
-    # Input parameter prediksi
-    prediction_days = st.slider("Pilih Jumlah Hari Prediksi", 7, 90, 30)
-    model_option = st.selectbox("Pilih Model Prediksi", ["Prophet", "N-BEATS"])
-
-    # Jalankan prediksi
-    if model_option == "Prophet":
-        forecast = predict_revenue_prophet(salesVsTime, prediction_days)
-    else:
-        forecast = predict_revenue_nbeats(salesVsTime, prediction_days)
-
-    # Visualisasi prediksi
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=salesVsTime["Tanggal & Waktu"],
-            y=salesVsTime["nominal_transaksi"],
-            name="Historical Revenue",
-            line=dict(color="#005f73"),
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=forecast["ds"],
-            y=forecast["yhat"],
-            name=f"Predicted Revenue ({model_option})",
-            line=dict(color="#ee9b00", dash="dash"),
-        )
-    )
-    fig.update_layout(
-        title=f"Revenue Prediction for Next {prediction_days} Days with {model_option}",
-        xaxis_title="Date",
-        yaxis_title="Revenue",
-        template="plotly_white",
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Create the model instance and forecast
+    model = NBEATS()
+    forecast_model = NeuralForecast(models=[model], freq='D')
+    forecast_model.fit(df_nbeats)
+    
+    # Predict for the next 'prediction_days'
+    forecast = forecast_model.predict(fh=prediction_days)
+    
+    # Convert forecast to a DataFrame for easy manipulation
+    forecast_df = forecast[model.name].reset_index()
+    forecast_df.rename(columns={'ds': 'Tanggal & Waktu', 'yhat': 'nominal_transaksi'}, inplace=True)
+    
+    return forecast_df
