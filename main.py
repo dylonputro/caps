@@ -10,137 +10,127 @@ from neuralforecast import NeuralForecast
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
 
-#Fungsi read data 
-def load_data (path : str):
-    data = pd.read_csv(path)
-    return data 
+def load_data(path: str):
+    try:
+        data = pd.read_csv(path)
+        return data
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
+
 if "page" not in st.session_state:
     st.session_state.page = "upload"
 if "df" not in st.session_state:
     st.session_state.df = None
 if "column_mapping" not in st.session_state:
     st.session_state.column_mapping = {}
-#drop page
+
 if st.session_state.page == "upload":
-    #Drag and drop Feature
     uppath = st.file_uploader("Drop your file please")
-    if uppath is None:  
+    if uppath is None:
         st.stop()
-    st.session_state.df = load_data(uppath)
+    if st.session_state.df is None:
+        st.session_state.df = load_data(uppath)
     if st.session_state.df is not None:
-        with st.expander("Data Preview"):  
+        with st.expander("Data Preview"):
             st.dataframe(st.session_state.df)
             st.write(st.session_state.df.dtypes)
-        standard_columns = ['Tanggal & Waktu', 'ID Struk', 'Tipe Penjualan', 'Nama Pelanggan','Nama Produk', 'Kategori', 'Jumlah Produk', 'Harga Produk', 'Metode Pembayaran']
+        standard_columns = ['Tanggal & Waktu', 'ID Struk', 'Tipe Penjualan', 'Nama Pelanggan', 'Nama Produk', 'Kategori', 'Jumlah Produk', 'Harga Produk', 'Metode Pembayaran']
         submitted_columns = st.session_state.df.columns.tolist()
-        #standrazize colum name 
         if set(submitted_columns) == set(standard_columns):
             st.success("✅ Column names match the standard.")
         else:
             st.warning("⚠️ Column names do not match the standard!")
             for i, col in enumerate(standard_columns):
-                default_value = st.session_state.column_mapping.get(col, None)  # Ambil nilai sebelumnya jika ada
+                default_value = st.session_state.column_mapping.get(col, None)
                 st.session_state.column_mapping[col] = st.selectbox(
-                    f"Select column for '{col}'", submitted_columns, index=submitted_columns.index(default_value) if default_value in submitted_columns else 0, key=f"col_{i}"
+                    f"Select column for '{col}'",
+                    submitted_columns,
+                    index=submitted_columns.index(default_value) if default_value in submitted_columns else 0,
+                    key=f"col_{i}"
                 )
             if st.button("Change"):
                 st.session_state.df = prepro.fix_column_name(st.session_state.df, st.session_state.column_mapping)
-    if st.button("Continue"):
-        st.session_state.page = "Dashboard"
-        st.session_state.df=prepro.clean_data(st.session_state.df)
-        st.experimental_rerun()
+                st.experimental_rerun()
+        if st.button("Continue"):
+            st.session_state.page = "Dashboard"
+            st.session_state.df = prepro.clean_data(st.session_state.df)
+            st.experimental_rerun()
+
 elif st.session_state.page == "Dashboard":
     salesVsTime = prepro.prep_sales(st.session_state.df)
     groupByCustomer = prepro.prep_customer(st.session_state.df)
     groupByHour = prepro.prep_grouphour(st.session_state.df)
     groupByProduct = prepro.prep_groupProduct(st.session_state.df)
     groupByKategori = prepro.prep_groupKategori(st.session_state.df)
-    #Sales Dashboard
+    
+    # Sales dashboard
     with st.container():
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3 = st.columns([1,1,1])
         with col1:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['nominal_transaksi'].mean(),
-                    title={"text": "Rata-Rata Pemasukan Harian"},
-                    delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['nominal_transaksi'].mean(),
+                title={"text": "Rata-Rata Pemasukan Harian"},
+                delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
+            ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
         with col2:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['banyak_produk'].mean(),
-                    title={"text": "Rata-Rata Produk Harian"},
-                    delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['banyak_produk'].mean(),
+                title={"text": "Rata-Rata Produk Harian"},
+                delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
+            ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
         with col3:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['banyak_transaksi'].mean(),
-                    title={"text": "Rata-Rata Transaksi Dalam Harian"},
-                    delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['banyak_transaksi'].mean(),
+                title={"text": "Rata-Rata Transaksi Dalam Harian"},
+                delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
+            ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
         with st.container():
-            col1, col2= st.columns(2)
+            col1, col2 = st.columns(2)
             with col1:
                 fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_transaksi", title="Banyak Transaksi Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
-
             with col2:
                 fig = px.line(groupByHour, x="Jam", y="Jumlah_produk", title="Rata-rata Banyak Produk yang dipesan dalam Seharian")
-                st.plotly_chart(fig, use_container_width=True)                
+                st.plotly_chart(fig, use_container_width=True)
         with st.container():
             col1, col2 = st.columns(2)
             with col1:
                 fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
                 st.plotly_chart(fig)
             with col2:
-                datasales=salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
+                datasales = salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
                 datasales['Tanggal & Waktu'] = pd.to_datetime(datasales['Tanggal & Waktu'])
                 datasales = datasales.sort_values('Tanggal & Waktu')
                 datasales.set_index('Tanggal & Waktu', inplace=True)
-                fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
+                fig = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
 
                 if st.button('Make Prediction'):
                     st.info("Training NBEATS model, please wait...")
-                    # Prepare data for NeuralForecast NBEATS
                     df_train = datasales.reset_index()
                     df_train.rename(columns={"Tanggal & Waktu": "ds", "nominal_transaksi": "y"}, inplace=True)
                     df_train['unique_id'] = 'series_1'
-
-                    # Define model
                     model = NBEATS(h=7, input_size=14, loss='mae', n_layers=2, n_hidden=128, stack_types=('trend', 'seasonality'))
                     nf = NeuralForecast(models=[model], freq='D')
-
-                    # Fit model
                     nf.fit(df_train)
-
-                    # Make predictions
                     forecast_df = nf.predict()
                     forecast_df['ds'] = pd.to_datetime(forecast_df['ds'])
-
-                    # Plot predictions with original data
                     fig.add_trace(go.Scatter(
                         x=forecast_df['ds'],
                         y=forecast_df['yhat1'],
@@ -149,7 +139,7 @@ elif st.session_state.page == "Dashboard":
                         line=dict(color='red', dash='dash')
                     ))
                     fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction)")
-                    st.plotly_chart(fig, use_container_width=True)   
+                    st.plotly_chart(fig, use_container_width=True)
     #Product Dashboard             
     with st.container() : 
         col21, col22 = st.columns(2)
