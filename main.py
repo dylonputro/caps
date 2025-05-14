@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import prepro
 import ollama
-import plotly.graph_objects as go
 from neuralforecast.models import NBEATS
 from neuralforecast import NeuralForecast
 
@@ -49,7 +48,7 @@ if st.session_state.page == "upload":
     if st.button("Continue"):
         st.session_state.page = "Dashboard"
         st.session_state.df=prepro.clean_data(st.session_state.df)
-        st.rerun()
+        st.experimental_rerun()
 elif st.session_state.page == "Dashboard":
     salesVsTime = prepro.prep_sales(st.session_state.df)
     groupByCustomer = prepro.prep_customer(st.session_state.df)
@@ -117,23 +116,38 @@ elif st.session_state.page == "Dashboard":
                 st.plotly_chart(fig)
             with col2:
                 datasales=salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
+                datasales['Tanggal & Waktu'] = pd.to_datetime(datasales['Tanggal & Waktu'])
+                datasales = datasales.sort_values('Tanggal & Waktu')
                 datasales.set_index('Tanggal & Waktu', inplace=True)
                 fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
+
                 if st.button('Make Prediction'):
-                    predicted_values, model, scaler = prepro.fine_tune_and_predict(datasales)
-                    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
-                    predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
-                    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-                    fig.add_traces(
-                        go.Scatter(
-                            x=predicted_df.index, 
-                            y=predicted_df['nominal_transaksi'], 
-                            mode='lines', 
-                            name='Predictions',
-                            line=dict(color='red', dash='dash')
-                        )
-                    )
+                    st.info("Training NBEATS model, please wait...")
+                    # Prepare data for NeuralForecast NBEATS
+                    df_train = datasales.reset_index()
+                    df_train.rename(columns={"Tanggal & Waktu": "ds", "nominal_transaksi": "y"}, inplace=True)
+                    df_train['unique_id'] = 'series_1'
+
+                    # Define model
+                    model = NBEATS(h=7, input_size=14, loss='mae', n_layers=2, n_hidden=128, stack_types=('trend', 'seasonality'))
+                    nf = NeuralForecast(models=[model], freq='D')
+
+                    # Fit model
+                    nf.fit(df_train)
+
+                    # Make predictions
+                    forecast_df = nf.predict()
+                    forecast_df['ds'] = pd.to_datetime(forecast_df['ds'])
+
+                    # Plot predictions with original data
+                    fig.add_trace(go.Scatter(
+                        x=forecast_df['ds'],
+                        y=forecast_df['yhat1'],
+                        mode='lines',
+                        name='Predicted',
+                        line=dict(color='red', dash='dash')
+                    ))
                     fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction)")
                     st.plotly_chart(fig, use_container_width=True)   
     #Product Dashboard             
