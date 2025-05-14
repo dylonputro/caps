@@ -4,6 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import prepro
 import ollama
+import plotly.graph_objects as go
+from fbprophet import Prophet
+from sklearn.metrics import mean_absolute_error
+from neuralforecast.models import NBEATS
+from neuralforecast import NeuralForecast
+import plotly.express as px
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
 
@@ -243,3 +249,92 @@ elif st.session_state.page == "Dashboard":
                     st.markdown(response.response)
             st.session_state.messages.append({"role": "assistant", "content": response.response})
 
+# Fungsi untuk memprediksi dengan Prophet
+def predict_revenue_prophet(df, prediction_days=30):
+    df_prophet = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
+    df_prophet.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
+    model = Prophet()
+    model.fit(df_prophet)
+    future = model.make_future_dataframe(df_prophet, periods=prediction_days)
+    forecast = model.predict(future)
+    return forecast[['ds', 'yhat']]
+
+# Fungsi untuk memprediksi dengan N-BEATS
+def predict_revenue_nbeats(df, prediction_days=30):
+    # Rename sesuai format NeuralForecast
+    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
+    df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
+    df_nbeats['unique_id'] = 'revenue'  # Wajib field untuk NeuralForecast
+    df_nbeats = df_nbeats[['unique_id', 'ds', 'y']]
+
+    # Pastikan ds dalam format datetime
+    df_nbeats['ds'] = pd.to_datetime(df_nbeats['ds'])
+
+    # Inisialisasi model
+    model = NeuralForecast(models=[NBEATS(h=prediction_days)], freq='D')
+    model.fit(df_nbeats)
+
+    # Prediksi
+    forecast = model.predict()
+    forecast = forecast.rename(columns={'NBEATS': 'yhat'})
+
+    # Buat kolom 'ds' untuk x-axis di plot
+    last_date = df_nbeats['ds'].max()
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=prediction_days, freq='D')
+    forecast['ds'] = future_dates
+    return forecast
+
+# Streamlit Layout
+st.title("📊 Prediksi Omset Menggunakan Prophet & N-BEATS")
+st.write("Aplikasi ini digunakan untuk memprediksi omset berdasarkan data historis.")
+
+# Upload Data
+uploaded_file = st.file_uploader("Pilih file CSV", type=["csv"])
+if uploaded_file:
+    # Membaca data
+    df = pd.read_csv(uploaded_file)
+    df['Tanggal & Waktu'] = pd.to_datetime(df['Tanggal & Waktu'])
+    salesVsTime = df.groupby('Tanggal & Waktu').agg({'nominal_transaksi': 'sum'}).reset_index()
+
+    # Menampilkan data
+    st.subheader("Data Historis Omset")
+    st.write(salesVsTime)
+
+    # Pilih model untuk prediksi
+    st.subheader("🔮 Revenue Prediction")
+
+    # Input parameter prediksi
+    prediction_days = st.slider("Pilih Jumlah Hari Prediksi", 7, 90, 30)
+    model_option = st.selectbox("Pilih Model Prediksi", ["Prophet", "N-BEATS"])
+
+    # Jalankan prediksi
+    if model_option == "Prophet":
+        forecast = predict_revenue_prophet(salesVsTime, prediction_days)
+    else:
+        forecast = predict_revenue_nbeats(salesVsTime, prediction_days)
+
+    # Visualisasi prediksi
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=salesVsTime["Tanggal & Waktu"],
+            y=salesVsTime["nominal_transaksi"],
+            name="Historical Revenue",
+            line=dict(color="#005f73"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=forecast["ds"],
+            y=forecast["yhat"],
+            name=f"Predicted Revenue ({model_option})",
+            line=dict(color="#ee9b00", dash="dash"),
+        )
+    )
+    fig.update_layout(
+        title=f"Revenue Prediction for Next {prediction_days} Days with {model_option}",
+        xaxis_title="Date",
+        yaxis_title="Revenue",
+        template="plotly_white",
+    )
+    st.plotly_chart(fig, use_container_width=True)
