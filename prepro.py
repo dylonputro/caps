@@ -20,8 +20,7 @@ def fine_tune_and_predict(data):
     train_data = data[:int(len(data) * 0.8)]
     val_data = data[int(len(data) * 0.8):]
 
-    if len(data) < threshold:
-    raise ValueError("Data tidak cukup untuk pelatihan N-BEATS.")
+
 
     max_encoder_length = 20 
     max_prediction_length = 7 
