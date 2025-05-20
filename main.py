@@ -117,22 +117,28 @@ elif st.session_state.page == "Dashboard":
                 fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
                 st.plotly_chart(fig)
             with col2:
-                datasales=salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
-                datasales.set_index('Tanggal & Waktu', inplace=True)
-                fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
-                st.plotly_chart(fig, use_container_width=True)
-               if st.button('Make Prediction'):
-                predicted_df = predict_revenue_nbeats(datasales, prediction_days=30)
-                    
-                fig.add_traces(go.Scatter(
+        datasales = salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
+        datasales.set_index('Tanggal & Waktu', inplace=True)
+
+        # Grafik asli pemasukan
+        fig2 = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
+        st.plotly_chart(fig2, use_container_width=True)
+
+        if st.button('Make Prediction'):
+            # Reset index agar kolom 'Tanggal & Waktu' tersedia untuk fungsi prediksi
+            predicted_df = predict_revenue_nbeats(datasales.reset_index(), prediction_days=30)
+
+            # Tambahkan garis prediksi ke grafik baru agar grafik asli tidak tertimpa
+            fig_pred = px.line(datasales, x=datasales.index, y='nominal_transaksi', title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
+            fig_pred.add_traces(go.Scatter(
                 x=predicted_df.index,
                 y=predicted_df['nominal_transaksi'],
                 mode='lines',
                 name='Prediksi N-BEATS',
                 line=dict(color='red', dash='dash')
-                ))
-                 fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
-                st.plotly_chart(fig, use_container_width=True)
+            ))
+
+            st.plotly_chart(fig_pred, use_container_width=True)
 
     #Product Dashboard             
     with st.container() : 
