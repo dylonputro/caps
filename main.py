@@ -245,28 +245,5 @@ elif st.session_state.page == "Dashboard":
             st.session_state.messages.append({"role": "assistant", "content": response.response})
 
 
-# Fungsi untuk memprediksi dengan N-BEATS
-def predict_revenue_nbeats(df, prediction_days=30):
-    # Persiapkan data sesuai format yang dibutuhkan oleh NeuralForecast
-    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
-    df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
-    
-    # Tentukan model N-BEATS
-    model = NBEATS(lags=12, input_size=10, n_epochs=100)
-    
-    # Persiapkan data untuk prediksi
-    nf = NeuralForecast(models=[model], freq='D')
-    nf.fit(df_nbeats)
-    
-    # Melakukan prediksi
-    forecast = nf.predict(steps=prediction_days)
-    
-    # Mengembalikan prediksi dengan tanggal
-    predicted_df = pd.DataFrame({
-        'Tanggal & Waktu': forecast.index,
-        'nominal_transaksi': forecast['NBEATS']
-    })
-    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-    return predicted_df
 
 
