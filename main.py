@@ -4,27 +4,43 @@ import plotly.express as px
 import plotly.graph_objects as go
 import prepro
 import ollama
-import plotly.graph_objects as go
 from neuralforecast.models import NBEATS
 from neuralforecast import NeuralForecast
-from statsmodels.tsa.arima.model import ARIMA
 
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
 
-#Fungsi read data 
-def load_data (path : str):
+# Fungsi prediksi dengan NBEATS
+def predict_revenue_nbeats(df, prediction_days=30):
+    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
+    df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
+
+    model = NBEATS(lags=12, input_size=10, n_epochs=100)
+    nf = NeuralForecast(models=[model], freq='D')
+    nf.fit(df_nbeats)
+    forecast = nf.predict(steps=prediction_days)
+
+    predicted_df = pd.DataFrame({
+        'Tanggal & Waktu': forecast.index,
+        'nominal_transaksi': forecast['NBEATS']
+    })
+    predicted_df.set_index('Tanggal & Waktu', inplace=True)
+    return predicted_df
+
+# Fungsi load data 
+def load_data(path: str):
     data = pd.read_csv(path)
     return data 
+
 if "page" not in st.session_state:
     st.session_state.page = "upload"
 if "df" not in st.session_state:
     st.session_state.df = None
 if "column_mapping" not in st.session_state:
     st.session_state.column_mapping = {}
-#drop page
+
+# Halaman Upload
 if st.session_state.page == "upload":
-    #Drag and drop Feature
     uppath = st.file_uploader("Drop your file please")
     if uppath is None:  
         st.stop()
@@ -35,13 +51,12 @@ if st.session_state.page == "upload":
             st.write(st.session_state.df.dtypes)
         standard_columns = ['Tanggal & Waktu', 'ID Struk', 'Tipe Penjualan', 'Nama Pelanggan','Nama Produk', 'Kategori', 'Jumlah Produk', 'Harga Produk', 'Metode Pembayaran']
         submitted_columns = st.session_state.df.columns.tolist()
-        #standrazize colum name 
         if set(submitted_columns) == set(standard_columns):
             st.success("✅ Column names match the standard.")
         else:
             st.warning("⚠️ Column names do not match the standard!")
             for i, col in enumerate(standard_columns):
-                default_value = st.session_state.column_mapping.get(col, None)  # Ambil nilai sebelumnya jika ada
+                default_value = st.session_state.column_mapping.get(col, None)
                 st.session_state.column_mapping[col] = st.selectbox(
                     f"Select column for '{col}'", submitted_columns, index=submitted_columns.index(default_value) if default_value in submitted_columns else 0, key=f"col_{i}"
                 )
@@ -49,96 +64,92 @@ if st.session_state.page == "upload":
                 st.session_state.df = prepro.fix_column_name(st.session_state.df, st.session_state.column_mapping)
     if st.button("Continue"):
         st.session_state.page = "Dashboard"
-        st.session_state.df=prepro.clean_data(st.session_state.df)
-        st.rerun()
+        st.session_state.df = prepro.clean_data(st.session_state.df)
+        st.experimental_rerun()
+
+# Halaman Dashboard
 elif st.session_state.page == "Dashboard":
     salesVsTime = prepro.prep_sales(st.session_state.df)
     groupByCustomer = prepro.prep_customer(st.session_state.df)
     groupByHour = prepro.prep_grouphour(st.session_state.df)
     groupByProduct = prepro.prep_groupProduct(st.session_state.df)
     groupByKategori = prepro.prep_groupKategori(st.session_state.df)
-    #Sales Dashboard
+
+    # Sales Summary Indicators
     with st.container():
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3 = st.columns([1,1,1])
         with col1:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['nominal_transaksi'].mean(),
-                    title={"text": "Rata-Rata Pemasukan Harian"},
-                    delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        with col2:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['banyak_produk'].mean(),
-                    title={"text": "Rata-Rata Produk Harian"},
-                    delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        with col3:
-                fig = go.Figure()
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=salesVsTime['banyak_transaksi'].mean(),
-                    title={"text": "Rata-Rata Transaksi Dalam Harian"},
-                    delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
-                    number={"font": {"size": 60, "color": "#1F2A44"}}
-                ))
-                fig.update_layout(
-                    width=400,  
-                    height=150  
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        with st.container():
-            col1, col2= st.columns(2)
-            with col1:
-                fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_transaksi", title="Banyak Transaksi Seiring Waktu")
-                st.plotly_chart(fig, use_container_width=True)
-
-            with col2:
-                fig = px.line(groupByHour, x="Jam", y="Jumlah_produk", title="Rata-rata Banyak Produk yang dipesan dalam Seharian")
-                st.plotly_chart(fig, use_container_width=True)                
-        with st.container():
-            col1, col2 = st.columns(2)
-            with col1:
-                fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
-                st.plotly_chart(fig)
-            with col2:
-        datasales = salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
-        datasales.set_index('Tanggal & Waktu', inplace=True)
-
-        # Grafik asli pemasukan
-        fig2 = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
-        st.plotly_chart(fig2, use_container_width=True)
-
-        if st.button('Make Prediction'):
-            # Reset index agar kolom 'Tanggal & Waktu' tersedia untuk fungsi prediksi
-            predicted_df = predict_revenue_nbeats(datasales.reset_index(), prediction_days=30)
-
-            # Tambahkan garis prediksi ke grafik baru agar grafik asli tidak tertimpa
-            fig_pred = px.line(datasales, x=datasales.index, y='nominal_transaksi', title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
-            fig_pred.add_traces(go.Scatter(
-                x=predicted_df.index,
-                y=predicted_df['nominal_transaksi'],
-                mode='lines',
-                name='Prediksi N-BEATS',
-                line=dict(color='red', dash='dash')
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['nominal_transaksi'].mean(),
+                title={"text": "Rata-Rata Pemasukan Harian"},
+                delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
             ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['banyak_produk'].mean(),
+                title={"text": "Rata-Rata Produk Harian"},
+                delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
+            ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
+        with col3:
+            fig = go.Figure()
+            fig.add_trace(go.Indicator(
+                mode="number+delta",
+                value=salesVsTime['banyak_transaksi'].mean(),
+                title={"text": "Rata-Rata Transaksi Dalam Harian"},
+                delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2]), "relative": False, "increasing": {"color": "green"}, "decreasing": {"color": "red"}},
+                number={"font": {"size": 60, "color": "#1F2A44"}}
+            ))
+            fig.update_layout(width=400, height=150)
+            st.plotly_chart(fig, use_container_width=True)
 
-            st.plotly_chart(fig_pred, use_container_width=True)
+    # Grafik Sales dan Jam
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_transaksi", title="Banyak Transaksi Seiring Waktu")
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = px.line(groupByHour, x="Jam", y="Jumlah_produk", title="Rata-rata Banyak Produk yang dipesan dalam Seharian")
+            st.plotly_chart(fig, use_container_width=True)
+
+    # Grafik Banyak Ragam Produk & Pemasukan + Prediksi NBEATS
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            datasales = salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
+            datasales.set_index('Tanggal & Waktu', inplace=True)
+
+            # Grafik asli pemasukan
+            fig2 = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
+            st.plotly_chart(fig2, use_container_width=True)
+
+            if st.button('Make Prediction'):
+                # Reset index supaya 'Tanggal & Waktu' jadi kolom lagi
+                predicted_df = predict_revenue_nbeats(datasales.reset_index(), prediction_days=30)
+
+                # Buat grafik baru gabung asli + prediksi
+                fig_pred = px.line(datasales, x=datasales.index, y='nominal_transaksi', title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
+                fig_pred.add_traces(go.Scatter(
+                    x=predicted_df.index,
+                    y=predicted_df['nominal_transaksi'],
+                    mode='lines',
+                    name='Prediksi N-BEATS',
+                    line=dict(color='red', dash='dash')
+                ))
+                st.plotly_chart(fig_pred, use_container_width=True)
 
     #Product Dashboard             
     with st.container() : 
