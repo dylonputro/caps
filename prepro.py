@@ -17,8 +17,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 def fine_tune_and_predict(data):
     # Pastikan kolom tanggal sebagai datetime dan disortir
-    data['tanggal'] = pd.to_datetime(data['tanggal'])
-    data = data.sort_values('tanggal')
+    data['tanggal & waktu'] = pd.to_datetime(data['tanggal & waktu'])
+    data = data.sort_values('tanggal & waktu')
 
     # Agregasi jika masih ada duplikat per hari
     data = data.groupby('tanggal').agg({'nominal_transaksi': 'sum'}).reset_index()
