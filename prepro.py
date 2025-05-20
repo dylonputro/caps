@@ -16,11 +16,12 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 
 def fine_tune_and_predict(data):
-    # Pastikan kolom tanggal sebagai datetime dan disortir
-    data['tanggal & waktu'] = pd.to_datetime(data['tanggal & waktu'])
-    data = data.sort_values('tanggal & waktu')
+    # Pastikan kolom 'Tanggal & Waktu' sebagai datetime dan disortir
+    data['Tanggal & Waktu'] = pd.to_datetime(data['Tanggal & Waktu'])  # Use the correct column name
+    data = data.sort_values('Tanggal & Waktu')
 
     # Agregasi jika masih ada duplikat per hari
+    data['tanggal'] = data['Tanggal & Waktu'].dt.date  # Extract date part for grouping
     data = data.groupby('tanggal').agg({'nominal_transaksi': 'sum'}).reset_index()
 
     # Normalisasi
