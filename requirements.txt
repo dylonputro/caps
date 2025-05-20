@@ -11,3 +11,4 @@ pytorch-forecasting
 neuralforecast
 prophet
 statsmodels
+transformer
