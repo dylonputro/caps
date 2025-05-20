@@ -112,7 +112,7 @@ elif st.session_state.page == "Dashboard":
                 fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
                 st.plotly_chart(fig)
             with col2:
-                datasales=salesVsTime[["Tanggal & Waktu", "nominal_transaksi"]].copy()
+                datasales=salesVsTime[["nominal_transaksi", "Tanggal & Waktu"]].copy()
                 datasales.set_index('Tanggal & Waktu', inplace=True)
                 fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
