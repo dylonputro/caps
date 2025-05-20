@@ -10,53 +10,30 @@ from pytorch_forecasting.data import GroupNormalizer
 from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
 
-def fine_tune_and_predict(data):
-    data = data.copy()
-    data['time_idx'] = np.arange(len(data))
-    data["group"] = 0  # single group ID for the time series
+# Fungsi prediksi dengan model N-BEATS
+def fine_tune_and_predict(df, window_size=30, prediction_length=7):
+    model = joblib.load("model_nbeats.pkl")
+    scaler = joblib.load("scaler.pkl")
 
-    scaler = MinMaxScaler()
-    data['nominal_transaksi'] = scaler.fit_transform(data[['nominal_transaksi']])
-    train_data = data[:int(len(data) * 0.8)]
-    val_data = data[int(len(data) * 0.8):]
+    # Pastikan index bertipe datetime
+    df.index = pd.to_datetime(df.index)
 
-    max_encoder_length = 20 
-    max_prediction_length = 7 
+    # Ambil data nominal_transaksi dan scaling
+    data = df["nominal_transaksi"].values.reshape(-1, 1)
+    data_scaled = scaler.transform(data)
 
-    training = TimeSeriesDataSet(
-        train_data,
-        time_idx="time_idx",
-        target="nominal_transaksi",
-        group_ids=["group"],
-        min_encoder_length=max_encoder_length,
-        max_encoder_length=max_encoder_length,
-        min_prediction_length=max_prediction_length,
-        max_prediction_length=max_prediction_length,
-        static_categoricals=[],
-        static_reals=[],
-        time_varying_known_categoricals=[],
-        time_varying_known_reals=["time_idx"],
-        time_varying_unknown_categoricals=[],
-        time_varying_unknown_reals=["nominal_transaksi"],
-        target_normalizer=GroupNormalizer(groups=["group"], transformation="softplus"),
-    )
+    # Ambil window terakhir
+    input_seq = torch.tensor(data_scaled[-window_size:], dtype=torch.float32).flatten().unsqueeze(0)
 
-    trainer = Trainer(max_epochs=10, gpus=1 if torch.cuda.is_available() else 0)
-    model = NBeats.from_dataset(training, learning_rate=0.001, hidden_size=64, batch_size=64)
-    trainer.fit(model, train_dataloader=DataLoader(training, batch_size=64, shuffle=True))
+    # Prediksi ke depan
+    model.eval()
+    with torch.no_grad():
+        pred_scaled = model(input_seq).numpy().flatten()
 
-    # For prediction, construct a dataset or slice last encoder + prediction windows
-    # Simplified here; ideally use model.predict with proper dataset construction.
+    # Balikkan dari scaling
+    pred_actual = scaler.inverse_transform(pred_scaled.reshape(-1, 1)).flatten()
 
-    input_data = data['nominal_transaksi'][-(max_encoder_length + max_prediction_length):]
-    input_tensor = torch.tensor(input_data.values, dtype=torch.float32).unsqueeze(0)
-
-    predictions = model(input_tensor)
-    predicted_values = predictions.squeeze().detach().numpy()
-    predicted_values = scaler.inverse_transform(predicted_values.reshape(-1, 1)).flatten()
-
-    return predicted_values, model, scaler
-
+    return pred_actual, model, scaler
 
 def fix_column_name(df, names) : 
     df = df.rename(columns={v: k for k, v in names.items()})
