@@ -19,6 +19,20 @@ from sklearn.preprocessing import MinMaxScaler
 from neuralforecast import NeuralForecast
 from neuralforecast.models import NBEATS
 
+def fine_tune_and_predict(df):
+    """
+    Contoh fungsi fine-tune dan prediksi berbasis N-BEATS
+    """
+    df_grouped = prep_sales(df)  # pakai fungsi yang sudah ada
+    df_grouped.set_index("Tanggal & Waktu", inplace=True)
+    forecast = predict_revenue_nbeats(df_grouped, prediction_days=30)
+
+    # Contoh dummy: scaler dan model disimpan kosong untuk jaga format return
+    scaler = MinMaxScaler()
+    model = "NBEATS model placeholder"
+
+    return forecast, model, scaler
+
 def predict_revenue_nbeats(df, prediction_days=30):
     # Salin dan rename kolom supaya sesuai format NeuralForecast: ds (tanggal), y (value)
     df_nbeats = df.reset_index()[['Tanggal & Waktu', 'nominal_transaksi']].copy()
