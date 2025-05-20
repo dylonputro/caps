@@ -11,40 +11,54 @@ from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
 
 def fine_tune_and_predict(data):
-    data['time_idx'] = np.arange(len(data))
+    import warnings
+    warnings.filterwarnings("ignore")
+    
+    # Setup data
+    df = data.copy()
+    df['time_idx'] = np.arange(len(df))
+    df['group'] = "series_1"  # kolom group wajib ada meskipun hanya 1 series
+    
+    # Skala nominal_transaksi (opsional, karena normalizer sudah di handle NBeats)
     scaler = MinMaxScaler()
-    data['nominal_transaksi'] = scaler.fit_transform(data[['nominal_transaksi']])
-    train_data = data[:int(len(data) * 0.8)]
-    val_data = data[int(len(data) * 0.8):]
-    max_encoder_length = 20 
-    max_prediction_length = 7 
+    df['nominal_transaksi_scaled'] = scaler.fit_transform(df[['nominal_transaksi']])
+    
+    # Split data
+    max_encoder_length = 30
+    max_prediction_length = 7
+    train_cutoff = df["time_idx"].max() - max_prediction_length
+    
     training = TimeSeriesDataSet(
-        train_data,
+        df[df.time_idx <= train_cutoff],
         time_idx="time_idx",
-        target="nominal_transaksi",
-        group_ids=["time_idx"],  # The group ID for time series
-        min_encoder_length=max_encoder_length,
+        target="nominal_transaksi_scaled",
+        group_ids=["group"],
         max_encoder_length=max_encoder_length,
-        min_prediction_length=max_prediction_length,
         max_prediction_length=max_prediction_length,
-        static_categoricals=[],  # No static categorical features
-        static_reals=[],  # No static real features
-        time_varying_known_categoricals=[],  # No known categorical features
-        time_varying_known_reals=["time_idx"],  # The time index is known
-        time_varying_unknown_categoricals=[],  # No unknown categorical features
-        time_varying_unknown_reals=["nominal_transaksi"],  # The value is unknown and to be predicted
-        target_normalizer=GroupNormalizer(groups=["time_idx"], transformation="softplus"),
+        time_varying_known_reals=["time_idx"],
+        time_varying_unknown_reals=["nominal_transaksi_scaled"],
+        target_normalizer=GroupNormalizer(groups=["group"]),
     )
-    trainer = Trainer(max_epochs=10, gpus=1)
-    model = NBeats.from_dataset(training, learning_rate=0.001, hidden_size=64, batch_size=64)
-    trainer.fit(model, train_dataloader=DataLoader(training, batch_size=64, shuffle=True))
-    input_data = data['nominal_transaksi'][-30:]
-    input_tensor = torch.tensor(input_data.values, dtype=torch.float32).unsqueeze(0)
-    predictions = model(input_tensor)
-    predicted_values = predictions.squeeze().detach().numpy()
-    predicted_values = scaler.inverse_transform(predicted_values.reshape(-1, 1)).flatten()
 
-    return predicted_values, model, scaler
+    # Validation data loader
+    val_dataloader = training.to_dataloader(train=False, batch_size=64)
+    
+    # Model
+    model = NBeats.from_dataset(training, learning_rate=1e-3, hidden_size=64, log_interval=10, log_val_interval=1)
+    trainer = Trainer(max_epochs=10, gradient_clip_val=0.1, logger=False, enable_checkpointing=False, enable_model_summary=False)
+    trainer.fit(model, train_dataloaders=training.to_dataloader(train=True, batch_size=64, shuffle=True), val_dataloaders=val_dataloader)
+    
+    # Prediction
+    raw_predictions, x = model.predict(val_dataloader, mode="raw", return_x=True)
+    
+    # Ambil prediksi terakhir
+    y_pred = raw_predictions[0][0].detach().numpy()
+    
+    # Inverse scaling
+    y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
+    
+    return y_pred_inv, model, scaler
+
 
 def fix_column_name(df, names) : 
     df = df.rename(columns={v: k for k, v in names.items()})
