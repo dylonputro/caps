@@ -16,7 +16,16 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 
 def fine_tune_and_predict(data):
+    # Print column names for debugging
+    print("Columns in DataFrame:", data.columns)
+
+    # Strip any leading/trailing spaces from column names
+    data.columns = data.columns.str.strip()
+
     # Convert 'Tanggal & Waktu' to datetime
+    if 'Tanggal & Waktu' not in data.columns:
+        raise ValueError("Column 'Tanggal & Waktu' not found in the DataFrame.")
+    
     data['Tanggal & Waktu'] = pd.to_datetime(data['Tanggal & Waktu'], format='%d-%m-%Y %H:%M:%S')
 
     # Create 'nominal_transaksi' by multiplying 'Jumlah Produk' and 'Harga Produk'
