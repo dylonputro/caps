@@ -7,6 +7,7 @@ import ollama
 import plotly.graph_objects as go
 from neuralforecast.models import NBEATS
 from neuralforecast import NeuralForecast
+from statsmodels.tsa.arima.model import ARIMA
 
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
@@ -121,21 +122,17 @@ elif st.session_state.page == "Dashboard":
                 fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button('Make Prediction'):
-                    predicted_values, model, scaler = prepro.fine_tune_and_predict(datasales)
+                    predicted_values = prepro.fine_tune_and_predict(datasales)
                     future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
                     predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
                     predicted_df.set_index('Tanggal & Waktu', inplace=True)
-                    fig.add_traces(
-                        go.Scatter(
-                            x=predicted_df.index, 
-                            y=predicted_df['nominal_transaksi'], 
-                            mode='lines', 
-                            name='Predictions',
-                            line=dict(color='red', dash='dash')
-                        )
-                    )
-                    fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction)")
-                    st.plotly_chart(fig, use_container_width=True)   
+    
+                    fig.add_traces(go.Scatter(
+                        x=predicted_df.index, y=predicted_df['nominal_transaksi'],
+                        mode='lines', name='Prediksi ARIMA', line=dict(color='red', dash='dash')
+                    ))
+                    fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi ARIMA)")
+                    st.plotly_chart(fig, use_container_width=True) 
     #Product Dashboard             
     with st.container() : 
         col21, col22 = st.columns(2)
@@ -247,19 +244,7 @@ elif st.session_state.page == "Dashboard":
                     st.markdown(response.response)
             st.session_state.messages.append({"role": "assistant", "content": response.response})
 
-# Fungsi untuk memprediksi dengan Prophet
-def predict_revenue_prophet(df, prediction_days=30):
-    df_prophet = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
-    df_prophet.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
-    model = Prophet()
-    model.fit(df_prophet)
-    future = model.make_future_dataframe(df_prophet, periods=prediction_days)
-    forecast = model.predict(future)
-    return forecast[['ds', 'yhat']]
 
-# Fungsi untuk memprediksi dengan N-BEATS
-
-# Streamlit Layout
 # Fungsi untuk memprediksi dengan N-BEATS
 def predict_revenue_nbeats(df, prediction_days=30):
     # Persiapkan data sesuai format yang dibutuhkan oleh NeuralForecast
