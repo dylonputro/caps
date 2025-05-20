@@ -35,21 +35,17 @@ def fix_column_name(df, names):
     df = df.rename(columns={v: k for k, v in names.items()})
     return df
 
-def clean_data(df):
-    # Bersihkan dan format data agar siap diproses
+def clean_data(df): 
     df["Jumlah Produk"] = pd.to_numeric(df["Jumlah Produk"], errors="coerce")
     df = df[df["Jumlah Produk"] >= 0]
-
     df["Harga Produk"] = df["Harga Produk"].astype(str).str.replace(",", "", regex=True)
     df["Harga Produk"] = df["Harga Produk"].str.replace(r"[^0-9.]", "", regex=True)
     df["Harga Produk"] = pd.to_numeric(df["Harga Produk"], errors="coerce")
-
-    df["Tanggal & Waktu"] = df["Tanggal & Waktu"].str.replace(r"(\d{2})\.(\d{2})", r"\1:\2", regex=True)
-    df["Tanggal & Waktu"] = pd.to_datetime(df["Tanggal & Waktu"], errors="coerce", dayfirst=False)
-
+    df["Tanggal & Waktu"] = pd.to_datetime(df["Tanggal & Waktu"], errors="coerce", dayfirst=True)
     df['Total_harga'] = df['Harga Produk'] * df['Jumlah Produk']
     df['Jam'] = df['Tanggal & Waktu'].dt.hour
     return df
+
 
 def prep_sales(df):
     # Group data per hari untuk summary penjualan
