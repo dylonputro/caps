@@ -307,20 +307,4 @@ def predict_revenue_nbeats(df, prediction_days=30):
     predicted_df.set_index('Tanggal & Waktu', inplace=True)
     return predicted_df
 
-# Dalam bagian dashboard, kita tambahkan tombol untuk memicu prediksi dengan N-BEATS
-if st.button('Make Prediction with N-BEATS'):
-    predicted_values = predict_revenue_nbeats(datasales)
-    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
-    
-    # Update chart with prediction
-    fig.add_traces(
-        go.Scatter(
-            x=predicted_values.index, 
-            y=predicted_values['nominal_transaksi'], 
-            mode='lines', 
-            name='Predictions',
-            line=dict(color='red', dash='dash')
-        )
-    )
-    fig.update_layout(title="Banyak Pemasukan Seiring Waktu (with Prediction using N-BEATS)")
-    st.plotly_chart(fig, use_container_width=True)
+
