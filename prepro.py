@@ -16,9 +16,6 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 
 def fine_tune_and_predict(data):
-    # Print column names for debugging
-    print("Columns in DataFrame:", data.columns)
-
     # Strip any leading/trailing spaces from column names
     data.columns = data.columns.str.strip()
     
