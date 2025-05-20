@@ -16,28 +16,34 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 
 
+from neuralforecast import NeuralForecast
+from neuralforecast.models import NBEATS
+
 def predict_revenue_nbeats(df, prediction_days=30):
-    # Persiapkan data sesuai format yang dibutuhkan oleh NeuralForecast
-    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
+    # Salin dan rename kolom supaya sesuai format NeuralForecast: ds (tanggal), y (value)
+    df_nbeats = df.reset_index()[['Tanggal & Waktu', 'nominal_transaksi']].copy()
     df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
     
-    # Tentukan model N-BEATS
+    # Buat model N-BEATS
     model = NBEATS(lags=12, input_size=10, n_epochs=100)
     
-    # Persiapkan data untuk prediksi
+    # Inisialisasi NeuralForecast dengan frekuensi harian
     nf = NeuralForecast(models=[model], freq='D')
+    
+    # Fit model ke data
     nf.fit(df_nbeats)
     
-    # Melakukan prediksi
+    # Prediksi sebanyak prediction_days ke depan
     forecast = nf.predict(steps=prediction_days)
     
-    # Mengembalikan prediksi dengan tanggal
-    predicted_df = pd.DataFrame({
-        'Tanggal & Waktu': forecast.index,
-        'nominal_transaksi': forecast['NBEATS']
-    })
-    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-    return predicted_df
+    # forecast biasanya berupa DataFrame dengan index tanggal dan kolom model
+    # Pastikan index sudah berupa datetime dan reset index untuk membangun predicted_df
+    forecast = forecast.reset_index()
+    forecast.rename(columns={'index': 'Tanggal & Waktu', 'NBEATS': 'nominal_transaksi'}, inplace=True)
+    forecast.set_index('Tanggal & Waktu', inplace=True)
+    
+    return forecast
+
     
 def fine_tune_and_predict(data):
     # Strip any leading/trailing spaces from column names
