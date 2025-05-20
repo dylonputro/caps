@@ -11,53 +11,49 @@ from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
 
 def fine_tune_and_predict(data):
-    import warnings
-    warnings.filterwarnings("ignore")
-    
-    # Setup data
-    df = data.copy()
-    df['time_idx'] = np.arange(len(df))
-    df['group'] = "series_1"  # kolom group wajib ada meskipun hanya 1 series
-    
-    # Skala nominal_transaksi (opsional, karena normalizer sudah di handle NBeats)
+    data['time_idx'] = np.arange(len(data))
+    data["series_id"] = "global"  # Tambahkan grup ID statis
+
     scaler = MinMaxScaler()
-    df['nominal_transaksi_scaled'] = scaler.fit_transform(df[['nominal_transaksi']])
-    
-    # Split data
-    max_encoder_length = 30
-    max_prediction_length = 7
-    train_cutoff = df["time_idx"].max() - max_prediction_length
-    
+    data['nominal_transaksi'] = scaler.fit_transform(data[['nominal_transaksi']])
+
+    train_data = data[:int(len(data) * 0.8)]
+    val_data = data[int(len(data) * 0.8):]
+
+    if len(train_data) < 27:
+        raise ValueError("Data tidak cukup untuk pelatihan N-BEATS.")
+
+    max_encoder_length = 20 
+    max_prediction_length = 7 
+
     training = TimeSeriesDataSet(
-        df[df.time_idx <= train_cutoff],
+        train_data,
         time_idx="time_idx",
-        target="nominal_transaksi_scaled",
-        group_ids=["group"],
+        target="nominal_transaksi",
+        group_ids=["series_id"],
+        min_encoder_length=max_encoder_length,
         max_encoder_length=max_encoder_length,
+        min_prediction_length=max_prediction_length,
         max_prediction_length=max_prediction_length,
+        static_categoricals=[],
+        static_reals=[],
+        time_varying_known_categoricals=[],
         time_varying_known_reals=["time_idx"],
-        time_varying_unknown_reals=["nominal_transaksi_scaled"],
-        target_normalizer=GroupNormalizer(groups=["group"]),
+        time_varying_unknown_categoricals=[],
+        time_varying_unknown_reals=["nominal_transaksi"],
+        target_normalizer=GroupNormalizer(groups=["series_id"], transformation="softplus"),
     )
 
-    # Validation data loader
-    val_dataloader = training.to_dataloader(train=False, batch_size=64)
-    
-    # Model
-    model = NBeats.from_dataset(training, learning_rate=1e-3, hidden_size=64, log_interval=10, log_val_interval=1)
-    trainer = Trainer(max_epochs=10, gradient_clip_val=0.1, logger=False, enable_checkpointing=False, enable_model_summary=False)
-    trainer.fit(model, train_dataloaders=training.to_dataloader(train=True, batch_size=64, shuffle=True), val_dataloaders=val_dataloader)
-    
-    # Prediction
-    raw_predictions, x = model.predict(val_dataloader, mode="raw", return_x=True)
-    
-    # Ambil prediksi terakhir
-    y_pred = raw_predictions[0][0].detach().numpy()
-    
-    # Inverse scaling
-    y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
-    
-    return y_pred_inv, model, scaler
+    trainer = Trainer(max_epochs=10, gpus=1 if torch.cuda.is_available() else 0)
+    model = NBeats.from_dataset(training, learning_rate=0.001, hidden_size=64, batch_size=64)
+    trainer.fit(model, train_dataloaders=DataLoader(training, batch_size=64, shuffle=True))
+
+    # Prediksi manual dari data terakhir
+    raw_predictions, _ = model.predict(training, mode="raw", return_x=True)
+    predicted_values = model.predict(training)
+    predicted_values = scaler.inverse_transform(predicted_values.reshape(-1, 1)).flatten()
+
+    return predicted_values, model, scaler
 
 
 def fix_column_name(df, names) : 
