@@ -122,17 +122,17 @@ elif st.session_state.page == "Dashboard":
                 fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
                if st.button('Make Prediction'):
-                    predicted_df = predict_revenue_nbeats(datasales, prediction_days=30)
+                predicted_df = predict_revenue_nbeats(datasales, prediction_days=30)
                     
-                    fig.add_traces(go.Scatter(
-                        x=predicted_df.index,
-                        y=predicted_df['nominal_transaksi'],
-                        mode='lines',
-                        name='Prediksi N-BEATS',
-                        line=dict(color='red', dash='dash')
-                    ))
-                    fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
-                    st.plotly_chart(fig, use_container_width=True)
+                fig.add_traces(go.Scatter(
+                x=predicted_df.index,
+                y=predicted_df['nominal_transaksi'],
+                mode='lines',
+                name='Prediksi N-BEATS',
+                line=dict(color='red', dash='dash')
+                ))
+                 fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
+                st.plotly_chart(fig, use_container_width=True)
 
     #Product Dashboard             
     with st.container() : 
