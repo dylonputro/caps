@@ -12,3 +12,4 @@ neuralforecast
 prophet
 statsmodels
 transformers
+langchain
