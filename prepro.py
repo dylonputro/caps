@@ -45,48 +45,6 @@ def predict_revenue_nbeats(df, prediction_days=30):
     return forecast
 
     
-def fine_tune_and_predict(data):
-    # Strip any leading/trailing spaces from column names
-    data.columns = data.columns.str.strip()
-    
-    data['Tanggal & Waktu'] = pd.to_datetime(data['Tanggal & Waktu'], format='%d-%m-%Y %H:%M:%S')
-
-    # Create 'nominal_transaksi' by multiplying 'Jumlah Produk' and 'Harga Produk'
-    # First, clean 'Harga Produk' to remove commas and convert to numeric
-    data['Harga Produk'] = data['Harga Produk'].str.replace(",", "").astype(float)
-    data['nominal_transaksi'] = data['Jumlah Produk'] * data['Harga Produk']
-
-    # Sort by 'Tanggal & Waktu'
-    data = data.sort_values('Tanggal & Waktu')
-
-    # Extract date part for grouping
-    data['tanggal'] = data['Tanggal & Waktu'].dt.date
-
-    # Aggregate if there are duplicates per day
-    data = data.groupby('tanggal').agg({'nominal_transaksi': 'sum'}).reset_index()
-
-    # Normalize
-    scaler = MinMaxScaler()
-    scaled_values = scaler.fit_transform(data[['nominal_transaksi']])
-    data['scaled'] = scaled_values
-
-    # Model ARIMA (use scaled data)
-    train = data['scaled']
-
-    # Fit ARIMA model — (p,d,q) can be tuned, here using a simple (1,1,1)
-    model = ARIMA(train, order=(1, 1, 1))
-    fitted_model = model.fit()
-
-    # Predict 7 days ahead
-    forecast = fitted_model.forecast(steps=7)
-
-    # Inverse scale the predicted values
-    predicted_values = scaler.inverse_transform(forecast.values.reshape(-1, 1)).flatten()
-
-    return predicted_values, fitted_model, scaler
-
-
-
 
 def fix_column_name(df, names) : 
     df = df.rename(columns={v: k for k, v in names.items()})
