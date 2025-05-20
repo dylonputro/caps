@@ -10,49 +10,39 @@ from pytorch_forecasting.data import GroupNormalizer
 from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
 
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.preprocessing import MinMaxScaler
+
 def fine_tune_and_predict(data):
-    data['time_idx'] = np.arange(len(data))
-    data["series_id"] = "global"  # Tambahkan grup ID statis
+    # Pastikan kolom tanggal sebagai datetime dan disortir
+    data['tanggal'] = pd.to_datetime(data['tanggal'])
+    data = data.sort_values('tanggal')
 
+    # Agregasi jika masih ada duplikat per hari
+    data = data.groupby('tanggal').agg({'nominal_transaksi': 'sum'}).reset_index()
+
+    # Normalisasi
     scaler = MinMaxScaler()
-    data['nominal_transaksi'] = scaler.fit_transform(data[['nominal_transaksi']])
+    scaled_values = scaler.fit_transform(data[['nominal_transaksi']])
+    data['scaled'] = scaled_values
 
-    train_data = data[:int(len(data) * 0.8)]
-    val_data = data[int(len(data) * 0.8):]
+    # Model ARIMA (gunakan data berskala)
+    train = data['scaled']
 
+    # Fit model ARIMA — (p,d,q) bisa di-tune, di sini pakai sederhana (1,1,1)
+    model = ARIMA(train, order=(1, 1, 1))
+    fitted_model = model.fit()
 
+    # Prediksi 7 hari ke depan
+    forecast = fitted_model.forecast(steps=7)
 
-    max_encoder_length = 20 
-    max_prediction_length = 7 
+    # Invers skala hasil prediksi
+    predicted_values = scaler.inverse_transform(forecast.values.reshape(-1, 1)).flatten()
 
-    training = TimeSeriesDataSet(
-        train_data,
-        time_idx="time_idx",
-        target="nominal_transaksi",
-        group_ids=["series_id"],
-        min_encoder_length=max_encoder_length,
-        max_encoder_length=max_encoder_length,
-        min_prediction_length=max_prediction_length,
-        max_prediction_length=max_prediction_length,
-        static_categoricals=[],
-        static_reals=[],
-        time_varying_known_categoricals=[],
-        time_varying_known_reals=["time_idx"],
-        time_varying_unknown_categoricals=[],
-        time_varying_unknown_reals=["nominal_transaksi"],
-        target_normalizer=GroupNormalizer(groups=["series_id"], transformation="softplus"),
-    )
+    return predicted_values, fitted_model, scaler
 
-    trainer = Trainer(max_epochs=10, gpus=1 if torch.cuda.is_available() else 0)
-    model = NBeats.from_dataset(training, learning_rate=0.001, hidden_size=64, batch_size=64)
-    trainer.fit(model, train_dataloaders=DataLoader(training, batch_size=64, shuffle=True))
-
-    # Prediksi manual dari data terakhir
-    raw_predictions, _ = model.predict(training, mode="raw", return_x=True)
-    predicted_values = model.predict(training)
-    predicted_values = scaler.inverse_transform(predicted_values.reshape(-1, 1)).flatten()
-
-    return predicted_values, model, scaler
 
 
 def fix_column_name(df, names) : 
