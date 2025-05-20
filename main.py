@@ -116,11 +116,14 @@ with st.container():
                 future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
                 predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
                 predicted_df.set_index('Tanggal & Waktu', inplace=True)
-                fig.add_traces(
-                    go.Scatter(x=predicted_df.index, y=predicted_df['nominal_transaksi'], mode='lines', name='Predictions', line=dict(color='red', dash='dash'))
-                )
-                fig.update_layout(title="Pemasukan Seiring Waktu (with Prediction)")
-                st.plotly_chart(fig, use_container_width=True)
+
+    # Buat ulang plot dengan data lama dan prediksi
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=datasales.index, y=datasales["nominal_transaksi"], mode='lines', name='Actual'))
+    fig.add_trace(go.Scatter(x=predicted_df.index, y=predicted_df["nominal_transaksi"], mode='lines', name='Prediction', line=dict(color='red', dash='dash')))
+    fig.update_layout(title="Pemasukan Seiring Waktu (with Prediction)", xaxis_title="Tanggal", yaxis_title="Nominal Transaksi")
+    st.plotly_chart(fig, use_container_width=True)
+
    
     #Product Dashboard             
     with st.container() : 
