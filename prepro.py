@@ -16,33 +16,43 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 
 def fine_tune_and_predict(data):
-    # Pastikan kolom 'Tanggal & Waktu' sebagai datetime dan disortir
-    data['Tanggal & Waktu'] = pd.to_datetime(data['Tanggal & Waktu'])  # Use the correct column name
+    # Convert 'Tanggal & Waktu' to datetime
+    data['Tanggal & Waktu'] = pd.to_datetime(data['Tanggal & Waktu'], format='%d-%m-%Y %H:%M:%S')
+
+    # Create 'nominal_transaksi' by multiplying 'Jumlah Produk' and 'Harga Produk'
+    # First, clean 'Harga Produk' to remove commas and convert to numeric
+    data['Harga Produk'] = data['Harga Produk'].str.replace(",", "").astype(float)
+    data['nominal_transaksi'] = data['Jumlah Produk'] * data['Harga Produk']
+
+    # Sort by 'Tanggal & Waktu'
     data = data.sort_values('Tanggal & Waktu')
 
-    # Agregasi jika masih ada duplikat per hari
-    data['tanggal'] = data['Tanggal & Waktu'].dt.date  # Extract date part for grouping
+    # Extract date part for grouping
+    data['tanggal'] = data['Tanggal & Waktu'].dt.date
+
+    # Aggregate if there are duplicates per day
     data = data.groupby('tanggal').agg({'nominal_transaksi': 'sum'}).reset_index()
 
-    # Normalisasi
+    # Normalize
     scaler = MinMaxScaler()
     scaled_values = scaler.fit_transform(data[['nominal_transaksi']])
     data['scaled'] = scaled_values
 
-    # Model ARIMA (gunakan data berskala)
+    # Model ARIMA (use scaled data)
     train = data['scaled']
 
-    # Fit model ARIMA — (p,d,q) bisa di-tune, di sini pakai sederhana (1,1,1)
+    # Fit ARIMA model — (p,d,q) can be tuned, here using a simple (1,1,1)
     model = ARIMA(train, order=(1, 1, 1))
     fitted_model = model.fit()
 
-    # Prediksi 7 hari ke depan
+    # Predict 7 days ahead
     forecast = fitted_model.forecast(steps=7)
 
-    # Invers skala hasil prediksi
+    # Inverse scale the predicted values
     predicted_values = scaler.inverse_transform(forecast.values.reshape(-1, 1)).flatten()
 
     return predicted_values, fitted_model, scaler
+
 
 
 
