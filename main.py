@@ -121,18 +121,19 @@ elif st.session_state.page == "Dashboard":
                 datasales.set_index('Tanggal & Waktu', inplace=True)
                 fig = px.line(datasales, x=datasales.index , y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
                 st.plotly_chart(fig, use_container_width=True)
-                if st.button('Make Prediction'):
-                    predicted_values = prepro.fine_tune_and_predict(datasales)
-                    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
-                    predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
-                    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-    
+               if st.button('Make Prediction'):
+                    predicted_df = predict_revenue_nbeats(datasales, prediction_days=30)
+                    
                     fig.add_traces(go.Scatter(
-                        x=predicted_df.index, y=predicted_df['nominal_transaksi'],
-                        mode='lines', name='Prediksi ARIMA', line=dict(color='red', dash='dash')
+                        x=predicted_df.index,
+                        y=predicted_df['nominal_transaksi'],
+                        mode='lines',
+                        name='Prediksi N-BEATS',
+                        line=dict(color='red', dash='dash')
                     ))
-                    fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi ARIMA)")
-                    st.plotly_chart(fig, use_container_width=True) 
+                    fig.update_layout(title="Pemasukan Seiring Waktu (Dengan Prediksi N-BEATS)")
+                    st.plotly_chart(fig, use_container_width=True)
+
     #Product Dashboard             
     with st.container() : 
         col21, col22 = st.columns(2)
