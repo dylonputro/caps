@@ -52,74 +52,75 @@ elif st.session_state.page == "Dashboard":
     groupByHour = prepro.prep_grouphour(st.session_state.df)
     groupByProduct = prepro.prep_groupProduct(st.session_state.df)
     groupByKategori = prepro.prep_groupKategori(st.session_state.df)
-    #Sales Dashboard
- with st.container():
-        col1, col2, col3 = st.columns([1, 1, 1])
+
+#Sales Dashboard
+with st.container():
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        fig = go.Figure()
+        fig.add_trace(go.Indicator(
+            mode="number+delta",
+            value=salesVsTime['nominal_transaksi'].mean(),
+            title={"text": "Rata-Rata Pemasukan Harian"},
+            delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2])},
+            number={"font": {"size": 60, "color": "#1F2A44"}}
+        ))
+        fig.update_layout(width=400, height=150)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        fig = go.Figure()
+        fig.add_trace(go.Indicator(
+            mode="number+delta",
+            value=salesVsTime['banyak_produk'].mean(),
+            title={"text": "Rata-Rata Produk Harian"},
+            delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2])},
+            number={"font": {"size": 60, "color": "#1F2A44"}}
+        ))
+        fig.update_layout(width=400, height=150)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col3:
+        fig = go.Figure()
+        fig.add_trace(go.Indicator(
+            mode="number+delta",
+            value=salesVsTime['banyak_transaksi'].mean(),
+            title={"text": "Rata-Rata Transaksi Harian"},
+            delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2])},
+            number={"font": {"size": 60, "color": "#1F2A44"}}
+        ))
+        fig.update_layout(width=400, height=150)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with st.container():
+        col1, col2 = st.columns(2)
         with col1:
-            fig = go.Figure()
-            fig.add_trace(go.Indicator(
-                mode="number+delta",
-                value=salesVsTime['nominal_transaksi'].mean(),
-                title={"text": "Rata-Rata Pemasukan Harian"},
-                delta={"reference": salesVsTime['nominal_transaksi'].mean() - (salesVsTime["nominal_transaksi"].iloc[-1] - salesVsTime["nominal_transaksi"].iloc[-2])},
-                number={"font": {"size": 60, "color": "#1F2A44"}}
-            ))
-            fig.update_layout(width=400, height=150)
+            fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_transaksi", title="Banyak Transaksi Seiring Waktu")
             st.plotly_chart(fig, use_container_width=True)
-
         with col2:
-            fig = go.Figure()
-            fig.add_trace(go.Indicator(
-                mode="number+delta",
-                value=salesVsTime['banyak_produk'].mean(),
-                title={"text": "Rata-Rata Produk Harian"},
-                delta={"reference": salesVsTime['banyak_produk'].mean() - (salesVsTime["banyak_produk"].iloc[-1] - salesVsTime["banyak_produk"].iloc[-2])},
-                number={"font": {"size": 60, "color": "#1F2A44"}}
-            ))
-            fig.update_layout(width=400, height=150)
+            fig = px.line(groupByHour, x="Jam", y="Jumlah_produk", title="Rata-rata Banyak Produk dalam Seharian")
             st.plotly_chart(fig, use_container_width=True)
 
-        with col3:
-            fig = go.Figure()
-            fig.add_trace(go.Indicator(
-                mode="number+delta",
-                value=salesVsTime['banyak_transaksi'].mean(),
-                title={"text": "Rata-Rata Transaksi Harian"},
-                delta={"reference": salesVsTime['banyak_transaksi'].mean() - (salesVsTime["banyak_transaksi"].iloc[-1] - salesVsTime["banyak_transaksi"].iloc[-2])},
-                number={"font": {"size": 60, "color": "#1F2A44"}}
-            ))
-            fig.update_layout(width=400, height=150)
+      with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
+            st.plotly_chart(fig)
+        with col2:
+            datasales = salesVsTime[["nominal_transaksi", "Tanggal & Waktu"]].copy()
+            datasales.set_index('Tanggal & Waktu', inplace=True)
+            fig = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
             st.plotly_chart(fig, use_container_width=True)
-
-        with st.container():
-            col1, col2 = st.columns(2)
-            with col1:
-                fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_transaksi", title="Banyak Transaksi Seiring Waktu")
+            if st.button('Make Prediction'):
+                predicted_values, model, scaler = prepro.fine_tune_and_predict(datasales)
+                future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
+                predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
+                predicted_df.set_index('Tanggal & Waktu', inplace=True)
+                fig.add_traces(
+                    go.Scatter(x=predicted_df.index, y=predicted_df['nominal_transaksi'], mode='lines', name='Predictions', line=dict(color='red', dash='dash'))
+                )
+                fig.update_layout(title="Pemasukan Seiring Waktu (with Prediction)")
                 st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                fig = px.line(groupByHour, x="Jam", y="Jumlah_produk", title="Rata-rata Banyak Produk dalam Seharian")
-                st.plotly_chart(fig, use_container_width=True)
-
-        with st.container():
-            col1, col2 = st.columns(2)
-            with col1:
-                fig = px.line(salesVsTime, x="Tanggal & Waktu", y="banyak_jenis_produk", title="Banyak Ragam Produk Seiring Waktu")
-                st.plotly_chart(fig)
-            with col2:
-                datasales = salesVsTime[["nominal_transaksi", "Tanggal & Waktu"]].copy()
-                datasales.set_index('Tanggal & Waktu', inplace=True)
-                fig = px.line(datasales, x=datasales.index, y="nominal_transaksi", title="Banyak Pemasukan Seiring Waktu")
-                st.plotly_chart(fig, use_container_width=True)
-                if st.button('Make Prediction'):
-                    predicted_values, model, scaler = prepro.fine_tune_and_predict(datasales)
-                    future_dates = pd.date_range(start=datasales.index[-1], periods=len(predicted_values) + 1, freq='D')[1:]
-                    predicted_df = pd.DataFrame({'Tanggal & Waktu': future_dates, 'nominal_transaksi': predicted_values})
-                    predicted_df.set_index('Tanggal & Waktu', inplace=True)
-                    fig.add_traces(
-                        go.Scatter(x=predicted_df.index, y=predicted_df['nominal_transaksi'], mode='lines', name='Predictions', line=dict(color='red', dash='dash'))
-                    )
-                    fig.update_layout(title="Pemasukan Seiring Waktu (with Prediction)")
-                    st.plotly_chart(fig, use_container_width=True)
    
     #Product Dashboard             
     with st.container() : 
