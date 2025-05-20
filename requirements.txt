@@ -13,3 +13,4 @@ prophet
 statsmodels
 transformers
 langchain
+langchain-community
