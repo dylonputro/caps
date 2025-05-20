@@ -258,29 +258,6 @@ def predict_revenue_prophet(df, prediction_days=30):
     return forecast[['ds', 'yhat']]
 
 # Fungsi untuk memprediksi dengan N-BEATS
-def predict_revenue_nbeats(df, prediction_days=30):
-    # Rename sesuai format NeuralForecast
-    df_nbeats = df[['Tanggal & Waktu', 'nominal_transaksi']].copy()
-    df_nbeats.rename(columns={'Tanggal & Waktu': 'ds', 'nominal_transaksi': 'y'}, inplace=True)
-    df_nbeats['unique_id'] = 'revenue'  # Wajib field untuk NeuralForecast
-    df_nbeats = df_nbeats[['unique_id', 'ds', 'y']]
-
-    # Pastikan ds dalam format datetime
-    df_nbeats['ds'] = pd.to_datetime(df_nbeats['ds'])
-
-    # Inisialisasi model
-    model = NeuralForecast(models=[NBEATS(h=prediction_days)], freq='D')
-    model.fit(df_nbeats)
-
-    # Prediksi
-    forecast = model.predict()
-    forecast = forecast.rename(columns={'NBEATS': 'yhat'})
-
-    # Buat kolom 'ds' untuk x-axis di plot
-    last_date = df_nbeats['ds'].max()
-    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=prediction_days, freq='D')
-    forecast['ds'] = future_dates
-    return forecast
 
 # Streamlit Layout
 # Fungsi untuk memprediksi dengan N-BEATS
