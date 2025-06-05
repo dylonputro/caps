@@ -8,28 +8,6 @@ import openai
 
 
 
-    # Input user
-    user_input = st.chat_input("Type your message...")
-    if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                # Panggil OpenAI API ChatCompletion
-                response = openai.ChatCompletion.create(
-                    model="gpt-4o-mini",  # atau model lain yang kamu inginkan
-                    messages=st.session_state.messages,
-                    max_tokens=500,
-                    temperature=0.7,
-                )
-                assistant_reply = response['choices'][0]['message']['content']
-                st.markdown(assistant_reply)
-                st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
-
-st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
-st.title("Adashboard By Group 15")
-
 #Fungsi read data 
 def load_data (path : str):
     data = pd.read_csv(path)
