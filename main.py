@@ -4,6 +4,43 @@ import plotly.express as px
 import plotly.graph_objects as go
 import prepro
 import ollama
+import openai
+
+# ... bagian atas kode tetap sama ...
+
+with st.container(): 
+    st.title("🤖 Simple Chatbot with OpenAI")
+
+    # Setup OpenAI API key
+    openai.api_key = st.secrets["OPENAI_API_KEY"]  # simpan API key di Streamlit secrets atau bisa juga set manual
+
+    if "messages" not in st.session_state:
+        st.session_state["messages"] = [{"role": "system", "content": "You are a helpful assistant."}]
+
+    # Tampilkan pesan sebelumnya
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Input user
+    user_input = st.chat_input("Type your message...")
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                # Panggil OpenAI API ChatCompletion
+                response = openai.ChatCompletion.create(
+                    model="gpt-4o-mini",  # atau model lain yang kamu inginkan
+                    messages=st.session_state.messages,
+                    max_tokens=500,
+                    temperature=0.7,
+                )
+                assistant_reply = response['choices'][0]['message']['content']
+                st.markdown(assistant_reply)
+                st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+
 st.set_page_config(layout="wide", page_title="Dashboard Group 15", page_icon="📊")
 st.title("Adashboard By Group 15")
 
@@ -222,23 +259,36 @@ elif st.session_state.page == "Dashboard":
                     height=150  
                 )
                 st.plotly_chart(fig, use_container_width=True)
+            
     with st.container(): 
-        st.title("🤖 Simple Chatbot with OpenAI")
-        client = ollama.Client()
-        model  = "granite3-dense:2b"
+    st.title("🤖 Simple Chatbot with OpenAI")
 
-        if "messages" not in st.session_state:
-            st.session_state["messages"] = [{"role": "assistant", "content": "Hi! How can I help you today?"}]
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-        user_input = st.chat_input("Type your message...")
-        if user_input:
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            with st.chat_message("user"):
-                st.markdown(user_input)
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    response = client.generate(model=model, prompt=user_input)
-                    st.markdown(response.response)
-            st.session_state.messages.append({"role": "assistant", "content": response.response})
+    # Setup OpenAI API key
+    openai.api_key = st.secrets["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"]  # simpan API key di Streamlit secrets atau bisa juga set manual
+
+    if "messages" not in st.session_state:
+        st.session_state["messages"] = [{"role": "system", "content": "You are a helpful assistant."}]
+
+    # Tampilkan pesan sebelumnya
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Input user
+    user_input = st.chat_input("Type your message...")
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                # Panggil OpenAI API ChatCompletion
+                response = openai.ChatCompletion.create(
+                    model="gpt-4o-mini",  # atau model lain yang kamu inginkan
+                    messages=st.session_state.messages,
+                    max_tokens=500,
+                    temperature=0.7,
+                )
+                assistant_reply = response['choices'][0]['message']['content']
+                st.markdown(assistant_reply)
+                st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
