@@ -6,21 +6,7 @@ import prepro
 import ollama
 import openai
 
-# ... bagian atas kode tetap sama ...
 
-with st.container(): 
-    st.title("🤖 Simple Chatbot with OpenAI")
-
-    # Setup OpenAI API key
-    openai.api_key = st.secrets["OPENAI_API_KEY"]  # simpan API key di Streamlit secrets atau bisa juga set manual
-
-    if "messages" not in st.session_state:
-        st.session_state["messages"] = [{"role": "system", "content": "You are a helpful assistant."}]
-
-    # Tampilkan pesan sebelumnya
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
 
     # Input user
     user_input = st.chat_input("Type your message...")
